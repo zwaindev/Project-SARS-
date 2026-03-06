@@ -1,5 +1,4 @@
-from flask import Flask, jsonify, render_template_string
-import feedparser
+from flask import Flask, jsonify, request
 import requests
 import smtplib
 import sqlite3
@@ -8,17 +7,15 @@ from email.mime.text import MIMEText
 from datetime import datetime
 import threading
 import time
+import urllib.request
 
 app = Flask(__name__)
 
-# CONFIG - Render'da environment variable olarak gireceksin
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GMAIL_USER = os.environ.get("GMAIL_USER", "")
 GMAIL_PASS = os.environ.get("GMAIL_PASS", "")
 ADMIN_PASS = os.environ.get("ADMIN_PASS", "sars2025")
 MIN_MAGNITUDE = 4.0
-
-KANDILLI_RSS = "http://www.koeri.boun.edu.tr/scripts/lst0.asp"
 
 def init_db():
     conn = sqlite3.connect("sars.db")
@@ -54,6 +51,41 @@ def mark_sent(quake_id, magnitude, location):
     conn.commit()
     conn.close()
 
+def parse_kandilli():
+    quakes = []
+    try:
+        url = "http://www.koeri.boun.edu.tr/scripts/lst0.asp"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        response = urllib.request.urlopen(req, timeout=15)
+        content = response.read().decode('windows-1254', errors='ignore')
+        lines = content.split('\n')
+        for line in lines:
+            try:
+                parts = line.split()
+                if len(parts) < 9:
+                    continue
+                if not parts[0][0:4].isdigit():
+                    continue
+                mag = float(parts[6])
+                location = ' '.join(parts[8:])
+                depth = float(parts[4])
+                date = parts[0]
+                time_str = parts[1]
+                quake_id = f"{date}_{time_str}_{mag}"
+                quakes.append({
+                    'id': quake_id,
+                    'magnitude': mag,
+                    'location': location,
+                    'depth': depth,
+                    'time': f"{date} {time_str}",
+                    'severity': 'severe' if mag >= 5 else 'moderate' if mag >= 4 else 'minor'
+                })
+            except:
+                continue
+    except Exception as e:
+        print(f"Kandilli hata: {e}")
+    return quakes
+
 def get_ai_analysis(magnitude, location, depth):
     if not GEMINI_API_KEY:
         return "AI analizi için API anahtarı gerekli."
@@ -73,43 +105,18 @@ def send_email(to_list, subject, body):
     if not GMAIL_USER or not GMAIL_PASS:
         return False
     try:
-        msg = MIMEText(body, "plain", "utf-8")
-        msg["Subject"] = subject
-        msg["From"] = GMAIL_USER
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(GMAIL_USER, GMAIL_PASS)
             for to in to_list:
+                msg = MIMEText(body, "plain", "utf-8")
+                msg["Subject"] = subject
+                msg["From"] = GMAIL_USER
                 msg["To"] = to
                 server.sendmail(GMAIL_USER, to, msg.as_string())
         return True
-    except:
+    except Exception as e:
+        print(f"Email hata: {e}")
         return False
-
-def parse_kandilli():
-    quakes = []
-    try:
-        feed = feedparser.parse(KANDILLI_RSS)
-        for entry in feed.entries[:20]:
-            try:
-                title = entry.title
-                parts = title.split()
-                mag = float(parts[0])
-                location = " ".join(parts[3:])
-                depth = 10
-                quake_id = entry.get("id", title)
-                quakes.append({
-                    "id": quake_id,
-                    "magnitude": mag,
-                    "location": location,
-                    "depth": depth,
-                    "time": entry.get("published", ""),
-                    "severity": "severe" if mag >= 5 else "moderate" if mag >= 4 else "minor"
-                })
-            except:
-                continue
-    except:
-        pass
-    return quakes
 
 def check_and_notify():
     while True:
@@ -132,24 +139,24 @@ AI Analiz:
 {ai}
 
 ---
-Kaynak: Kandilli Rasathanesi
-Bu bildirimi durdurmak için sisteme giriş yapın."""
+Kaynak: Kandilli Rasathanesi"""
                         send_email(emails, subject, body)
                     mark_sent(q["id"], q["magnitude"], q["location"])
-        except:
-            pass
+        except Exception as e:
+            print(f"Notify hata: {e}")
         time.sleep(60)
 
 @app.route("/api/quakes")
 def api_quakes():
     quakes = parse_kandilli()
-    for q in quakes:
+    result = []
+    for q in quakes[:10]:
         q["ai"] = get_ai_analysis(q["magnitude"], q["location"], q["depth"])
-    return jsonify(quakes)
+        result.append(q)
+    return jsonify(result)
 
 @app.route("/api/subscribe", methods=["POST"])
 def subscribe():
-    from flask import request
     email = request.json.get("email", "").strip()
     if not email or "@" not in email:
         return jsonify({"error": "Geçersiz email"}), 400
@@ -166,14 +173,12 @@ def subscribe():
 
 @app.route("/api/admin/emails", methods=["GET"])
 def admin_emails():
-    from flask import request
     if request.headers.get("X-Admin-Pass") != ADMIN_PASS:
         return jsonify({"error": "Yetkisiz"}), 401
     return jsonify(get_emails())
 
 @app.route("/api/admin/test", methods=["POST"])
 def admin_test():
-    from flask import request
     if request.headers.get("X-Admin-Pass") != ADMIN_PASS:
         return jsonify({"error": "Yetkisiz"}), 401
     emails = get_emails()
