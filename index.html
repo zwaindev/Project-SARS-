@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SARS — Deprem Takip</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0000;
+    --surface: #140000;
+    --border: #2a0000;
+    --red: #ff1a1a;
+    --red-dim: #cc0000;
+    --orange: #ff6600;
+    --green: #00cc44;
+    --text: #f0e0e0;
+    --muted: #664444;
+    --mono: 'Space Mono', monospace;
+    --display: 'Bebas Neue', sans-serif;
+    --body: 'Inter', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    min-height: 100vh;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at top, #1a0000 0%, #0d0000 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .container { max-width: 860px; margin: 0 auto; padding: 0 16px; position: relative; z-index: 1; }
+
+  /* HEADER */
+  header {
+    padding: 28px 0 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .logo-text {
+    font-family: var(--display);
+    font-size: 42px;
+    color: var(--red);
+    letter-spacing: 4px;
+    line-height: 1;
+    text-shadow: 0 0 30px rgba(255,26,26,0.4);
+  }
+  .logo-sub {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 3px;
+    margin-top: 4px;
+  }
+  .live {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--red);
+    letter-spacing: 2px;
+  }
+  .live-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--red);
+    animation: blink 1s infinite;
+    box-shadow: 0 0 8px var(--red);
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* STATS */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    margin-bottom: 28px;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+  }
+  .stat-label { font-family: var(--mono); font-size: 8px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 6px; }
+  .stat-value { font-family: var(--display); font-size: 36px; color: var(--text); line-height: 1; }
+  .stat-value.red { color: var(--red); text-shadow: 0 0 20px rgba(255,26,26,0.5); }
+
+  /* EMAIL SIGNUP */
+  .signup-bar {
+    background: #1a0000;
+    border: 1px solid var(--red-dim);
+    border-left: 4px solid var(--red);
+    padding: 20px 24px;
+    margin-bottom: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .signup-title {
+    font-family: var(--display);
+    font-size: 22px;
+    color: var(--red);
+    letter-spacing: 2px;
+  }
+  .signup-desc {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    line-height: 1.6;
+  }
+  .signup-form { display: flex; gap: 8px; }
+  .signup-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .signup-input:focus { border-color: var(--red); }
+  .signup-input::placeholder { color: var(--muted); }
+  .signup-btn {
+    background: var(--red);
+    border: none;
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 10px 18px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .signup-btn:hover { background: #cc0000; }
+  .signup-msg { font-family: var(--mono); font-size: 10px; display: none; }
+  .signup-msg.ok { color: var(--green); }
+  .signup-msg.err { color: var(--red); }
+
+  /* SECTION */
+  .section-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* QUAKE CARDS */
+  .quake-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 48px; }
+
+  .quake-card {
+    background: var(--surface);
+    border-left: 4px solid transparent;
+    padding: 18px 20px;
+    transition: background 0.2s;
+    animation: fadeIn 0.4s ease both;
+  }
+  .quake-card:hover { background: #1a0505; }
+  .quake-card.severe { border-left-color: var(--red); }
+  .quake-card.moderate { border-left-color: var(--orange); }
+  .quake-card.minor { border-left-color: #333; }
+
+  .quake-top { display: flex; align-items: flex-start; gap: 20px; }
+
+  .mag-block { display: flex; flex-direction: column; align-items: center; min-width: 64px; }
+  .mag-num { font-family: var(--display); line-height: 1; }
+  .mag-num.severe { font-size: 48px; color: var(--red); text-shadow: 0 0 20px rgba(255,26,26,0.6); }
+  .mag-num.moderate { font-size: 42px; color: var(--orange); }
+  .mag-num.minor { font-size: 36px; color: #666; }
+  .mag-unit { font-family: var(--mono); font-size: 8px; color: var(--muted); letter-spacing: 2px; }
+
+  .quake-info { flex: 1; }
+  .quake-location { font-family: var(--body); font-weight: 600; font-size: 15px; color: var(--text); margin-bottom: 6px; }
+  .quake-meta { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+  .meta { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: 1px; }
+
+  /* AI ANALYSIS - always visible */
+  .ai-block {
+    background: rgba(255,26,26,0.04);
+    border-left: 2px solid #2a0000;
+    padding: 10px 14px;
+    margin-top: 4px;
+  }
+  .ai-label {
+    font-family: var(--mono);
+    font-size: 8px;
+    color: var(--red);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .ai-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #aa8888;
+    line-height: 1.7;
+  }
+
+  /* LOADING */
+  .loading {
+    text-align: center;
+    padding: 60px 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 3px;
+  }
+  .loading::after {
+    content: '';
+    display: block;
+    width: 32px;
+    height: 2px;
+    background: var(--red);
+    margin: 16px auto 0;
+    animation: loading 1s infinite;
+  }
+  @keyframes loading { 0%{width:0} 50%{width:60px} 100%{width:0} }
+
+  /* ADMIN */
+  .admin-toggle {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 3px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 24px;
+    text-transform: uppercase;
+  }
+  .admin-panel {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 28px;
+    margin-bottom: 48px;
+  }
+  .admin-panel.visible { display: block; }
+  .admin-title { font-family: var(--display); font-size: 24px; color: var(--red); letter-spacing: 2px; margin-bottom: 20px; }
+  .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .admin-label { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px; }
+  .admin-input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--mono); font-size: 12px;
+    padding: 10px 14px; outline: none; margin-bottom: 8px; transition: border-color 0.2s;
+  }
+  .admin-input:focus { border-color: var(--red); }
+  .admin-input::placeholder { color: var(--muted); }
+  .input-row { display: flex; gap: 8px; }
+  .admin-btn {
+    background: none; border: 1px solid var(--border); color: var(--text);
+    font-family: var(--mono); font-size: 9px; letter-spacing: 2px;
+    padding: 10px 16px; cursor: pointer; text-transform: uppercase; transition: all 0.2s;
+  }
+  .admin-btn:hover, .admin-btn.red { border-color: var(--red); color: var(--red); }
+  .admin-btn.red:hover { background: rgba(255,26,26,0.1); }
+  .phone-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+  .phone-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px; background: var(--bg); border: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px;
+  }
+  .phone-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 10px; font-family: var(--mono); }
+  .phone-del:hover { color: var(--red); }
+  .alert { font-family: var(--mono); font-size: 10px; padding: 8px 12px; margin-top: 8px; display: none; }
+  .alert.ok { background: rgba(0,204,68,0.1); border: 1px solid rgba(0,204,68,0.3); color: var(--green); }
+  .alert.err { background: rgba(255,26,26,0.1); border: 1px solid rgba(255,26,26,0.3); color: var(--red); }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 100; }
+  .modal-overlay.visible { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); padding: 36px; width: 320px; }
+  .modal-title { font-family: var(--display); font-size: 24px; color: var(--red); letter-spacing: 2px; margin-bottom: 20px; }
+  .modal-input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--mono); font-size: 13px;
+    padding: 12px 16px; outline: none; margin-bottom: 12px;
+  }
+  .modal-input:focus { border-color: var(--red); }
+  .modal-err { font-family: var(--mono); font-size: 10px; color: var(--red); margin-bottom: 8px; display: none; }
+  .modal-btns { display: flex; gap: 8px; }
+
+  footer { border-top: 1px solid var(--border); padding: 20px 0; display: flex; justify-content: space-between; }
+  .footer-text { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: 2px; }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  @media(max-width:600px) {
+    .stats { grid-template-columns: repeat(3,1fr); }
+    .quake-top { gap: 12px; }
+    .admin-grid { grid-template-columns: 1fr; }
+    .signup-form { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div>
+      <div class="logo-text">SARS</div>
+      <div class="logo-sub">SİSMİK AĞ RAPORLAMA SİSTEMİ</div>
+    </div>
+    <div class="live"><div class="live-dot"></div>CANLI</div>
+  </header>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Son 24 Saat</div>
+      <div class="stat-value red" id="stat24">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">En Büyük</div>
+      <div class="stat-value" id="statMax">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Kayıtlı</div>
+      <div class="stat-value" id="statSubs">—</div>
+    </div>
+  </div>
+
+  <div class="signup-bar">
+    <div class="signup-title">⚠ DEPREM BİLDİRİMİ AL</div>
+    <div class="signup-desc">E-POSTA ADRESINIZI GIRIN — DEPREM OLDUĞUNDA ANINDA BİLDİRİM VE AI ANALİZİ GÖNDERİLİR. ÜCRETSIZ.</div>
+    <div class="signup-form">
+      <input type="email" class="signup-input" id="emailInput" placeholder="ornek@gmail.com">
+      <button class="signup-btn" onclick="subscribe()">KAYIT OL</button>
+    </div>
+    <div class="signup-msg" id="signupMsg"></div>
+  </div>
+
+  <div class="section-label">Son Depremler</div>
+  <div class="quake-list" id="quakeList">
+    <div class="loading">VERİ YÜKLENİYOR</div>
+  </div>
+
+  <div class="admin-toggle" onclick="openModal()">🔒 YÖNETİCİ PANELİ</div>
+
+  <div class="admin-panel" id="adminPanel">
+    <div class="admin-title">YÖNETİCİ</div>
+    <div class="admin-grid">
+      <div>
+        <div class="admin-label">E-Posta Listesi</div>
+        <div class="input-row">
+          <input type="email" class="admin-input" id="adminEmailInput" placeholder="email ekle">
+          <button class="admin-btn red" onclick="adminAddEmail()">EKLE</button>
+        </div>
+        <div class="phone-list" id="emailList"></div>
+      </div>
+      <div>
+        <div class="admin-label">Test Bildirimi</div>
+        <p style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.6;margin-bottom:12px">Kayıtlı tüm adreslere test e-postası gönderir.</p>
+        <div class="alert" id="testAlert"></div>
+        <button class="admin-btn red" onclick="sendTest()">TEST GÖNDER</button>
+        <br><br>
+        <button class="admin-btn" onclick="lockAdmin()">ÇIKIŞ YAP</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span class="footer-text">SARS v0.1</span>
+    <span class="footer-text">KANDİLLİ RASATHANESİ</span>
+  </footer>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-title">GİRİŞ</div>
+    <input type="password" class="modal-input" id="pwInput" placeholder="Şifre" onkeydown="if(event.key==='Enter')checkPw()">
+    <div class="modal-err" id="modalErr">Hatalı şifre.</div>
+    <div class="modal-btns">
+      <button class="admin-btn red" onclick="checkPw()">GİR</button>
+      <button class="admin-btn" onclick="closeModal()">İPTAL</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = "https://project-sars.onrender.com";
+  let adminPass = "";
+  let isAdmin = false;
+  let emails = JSON.parse(localStorage.getItem('sars_emails') || '[]');
+
+  async function loadQuakes() {
+    try {
+      const r = await fetch(API + "/api/quakes");
+      const quakes = await r.json();
+      renderQuakes(quakes);
+      updateStats(quakes);
+    } catch(e) {
+      document.getElementById('quakeList').innerHTML = '<div class="loading">VERİ ALINAMIYOR</div>';
+    }
+  }
+
+  function renderQuakes(quakes) {
+    const list = document.getElementById('quakeList');
+    if (!quakes.length) { list.innerHTML = '<div class="loading">VERİ YOK</div>'; return; }
+    list.innerHTML = quakes.map((q, i) => `
+      <div class="quake-card ${q.severity}" style="animation-delay:${i*0.06}s">
+        <div class="quake-top">
+          <div class="mag-block">
+            <div class="mag-num ${q.severity}">${q.magnitude.toFixed(1)}</div>
+            <div class="mag-unit">MW</div>
+          </div>
+          <div class="quake-info">
+            <div class="quake-location">${q.location}</div>
+            <div class="quake-meta">
+              <span class="meta">🕐 ${q.time}</span>
+              <span class="meta">⬇ ${q.depth} KM</span>
+            </div>
+            <div class="ai-block">
+              <div class="ai-label">AI ANALİZ</div>
+              <div class="ai-text">${q.ai || 'Analiz yükleniyor...'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function updateStats(quakes) {
+    const now = Date.now();
+    const last24 = quakes.filter(q => {
+      try {
+        const d = new Date(q.time.replace(' ', 'T'));
+        return (now - d.getTime()) < 86400000;
+      } catch { return true; }
+    });
+    document.getElementById('stat24').textContent = last24.length || quakes.length;
+    const max = quakes.reduce((a, b) => b.magnitude > a.magnitude ? b : a, quakes[0]);
+    document.getElementById('statMax').textContent = max ? max.magnitude.toFixed(1) : '—';
+    document.getElementById('statSubs').textContent = emails.length;
+  }
+
+  async function subscribe() {
+    const email = document.getElementById('emailInput').value.trim();
+    const msg = document.getElementById('signupMsg');
+    if (!email || !email.includes('@')) {
+      msg.className = 'signup-msg err';
+      msg.textContent = 'Geçerli bir e-posta girin.';
+      msg.style.display = 'block';
+      return;
+    }
+    try {
+      const r = await fetch(API + "/api/subscribe", {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email})
+      });
+      const d = await r.json();
+      if (d.ok) {
+        msg.className = 'signup-msg ok';
+        msg.textContent = '✓ Kayıt başarılı. Deprem olduğunda bildirim alacaksınız.';
+        document.getElementById('emailInput').value = '';
+        emails.push(email);
+        localStorage.setItem('sars_emails', JSON.stringify(emails));
+        document.getElementById('statSubs').textContent = emails.length;
+      } else {
+        msg.className = 'signup-msg err';
+        msg.textContent = d.error || 'Hata oluştu.';
+      }
+    } catch {
+      msg.className = 'signup-msg err';
+      msg.textContent = 'Bağlantı hatası.';
+    }
+    msg.style.display = 'block';
+  }
+
+  function openModal() {
+    if (isAdmin) { document.getElementById('adminPanel').classList.toggle('visible'); return; }
+    document.getElementById('modalOverlay').classList.add('visible');
+    setTimeout(() => document.getElementById('pwInput').focus(), 100);
+  }
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('visible');
+    document.getElementById('pwInput').value = '';
+    document.getElementById('modalErr').style.display = 'none';
+  }
+  function checkPw() {
+    const pw = document.getElementById('pwInput').value;
+    adminPass = pw;
+    fetch(API + "/api/admin/emails", { headers: {'X-Admin-Pass': pw} })
+      .then(r => {
+        if (r.ok) {
+          isAdmin = true;
+          closeModal();
+          document.getElementById('adminPanel').classList.add('visible');
+          r.json().then(renderEmailList);
+        } else {
+          document.getElementById('modalErr').style.display = 'block';
+          document.getElementById('pwInput').value = '';
+        }
+      }).catch(() => {
+        document.getElementById('modalErr').style.display = 'block';
+      });
+  }
+  function lockAdmin() {
+    isAdmin = false;
+    adminPass = '';
+    document.getElementById('adminPanel').classList.remove('visible');
+  }
+  function renderEmailList(list) {
+    const el = document.getElementById('emailList');
+    el.innerHTML = list.length ? list.map((e, i) => `
+      <div class="phone-item">
+        <span>${e}</span>
+        <button class="phone-del" onclick="removeEmail('${e}')">SİL</button>
+      </div>`).join('') : '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:8px 0">Kayıtlı e-posta yok.</div>';
+  }
+  async function adminAddEmail() {
+    const email = document.getElementById('adminEmailInput').value.trim();
+    if (!email) return;
+    await fetch(API + "/api/subscribe", {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email})
+    });
+    document.getElementById('adminEmailInput').value = '';
+    const r = await fetch(API + "/api/admin/emails", { headers: {'X-Admin-Pass': adminPass} });
+    r.json().then(renderEmailList);
+  }
+  async function removeEmail(email) {
+    // silme endpoint eklenecek
+    alert('Silme özelliği yakında eklenecek.');
+  }
+  async function sendTest() {
+    const alert = document.getElementById('testAlert');
+    const r = await fetch(API + "/api/admin/test", {
+      method: 'POST',
+      headers: {'X-Admin-Pass': adminPass}
+    });
+    const d = await r.json();
+    alert.className = d.ok ? 'alert ok' : 'alert err';
+    alert.textContent = d.ok ? `✓ ${d.sent} adrese gönderildi.` : d.error;
+    alert.style.display = 'block';
+  }
+
+  loadQuakes();
+  setInterval(loadQuakes, 120000);
+</script>
+</body>
+</html>
