@@ -189,7 +189,7 @@ def admin_test():
 
 @app.route("/")
 def index():
-    return "SARS API çalışıyor."
+    return open('index.html', encoding='utf-8').read()
 
 if __name__ == "__main__":
     init_db()
