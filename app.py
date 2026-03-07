@@ -14,11 +14,12 @@ app = Flask(__name__)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GMAIL_USER = os.environ.get("GMAIL_USER", "")
 GMAIL_PASS = os.environ.get("GMAIL_PASS", "")
-ADMIN_PASS = os.environ.get("ADMIN_PASS", "sars2025")
+ADMIN_PASS = os.environ.get("ADMIN_PASS", "sars2026")
 MIN_MAGNITUDE = 4.0
+DB_PATH = "/tmp/sars.db"
 
 def init_db():
-    conn = sqlite3.connect("sars.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("""CREATE TABLE IF NOT EXISTS emails
                  (id INTEGER PRIMARY KEY, email TEXT UNIQUE, created_at TEXT)""")
@@ -27,8 +28,10 @@ def init_db():
     conn.commit()
     conn.close()
 
+init_db()
+
 def get_emails():
-    conn = sqlite3.connect("sars.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT email FROM emails")
     emails = [row[0] for row in c.fetchall()]
@@ -36,7 +39,7 @@ def get_emails():
     return emails
 
 def already_sent(quake_id):
-    conn = sqlite3.connect("sars.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT id FROM sent_quakes WHERE quake_id=?", (quake_id,))
     result = c.fetchone()
@@ -44,7 +47,7 @@ def already_sent(quake_id):
     return result is not None
 
 def mark_sent(quake_id, magnitude, location):
-    conn = sqlite3.connect("sars.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("INSERT OR IGNORE INTO sent_quakes (quake_id, magnitude, location, sent_at) VALUES (?,?,?,?)",
               (quake_id, magnitude, location, datetime.now().isoformat()))
@@ -98,7 +101,8 @@ Büyüklük ne anlama gelir, ne yapmalılar, tehlike var mı?"""
         r = requests.post(url, json=body, timeout=10)
         data = r.json()
         return data["candidates"][0]["content"]["parts"][0]["text"]
-    except:
+    except Exception as e:
+        print(f"Gemini hata: {e}")
         return "AI analizi şu an kullanılamıyor."
 
 def send_email(to_list, subject, body):
@@ -161,15 +165,15 @@ def subscribe():
     if not email or "@" not in email:
         return jsonify({"error": "Geçersiz email"}), 400
     try:
-        conn = sqlite3.connect("sars.db")
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute("INSERT OR IGNORE INTO emails (email, created_at) VALUES (?,?)",
                   (email, datetime.now().isoformat()))
         conn.commit()
         conn.close()
         return jsonify({"ok": True})
-    except:
-        return jsonify({"error": "Hata"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/admin/emails", methods=["GET"])
 def admin_emails():
@@ -192,7 +196,6 @@ def index():
     return open('index.html', encoding='utf-8').read()
 
 if __name__ == "__main__":
-    init_db()
     t = threading.Thread(target=check_and_notify, daemon=True)
     t.start()
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
