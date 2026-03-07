@@ -199,3 +199,4 @@ if __name__ == "__main__":
     t = threading.Thread(target=check_and_notify, daemon=True)
     t.start()
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+                
