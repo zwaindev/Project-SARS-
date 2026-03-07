@@ -119,7 +119,7 @@ def parse_kandilli():
 # ── GEMİNİ AI ────────────────────────────────────────────────────────────────
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-1.5-flash:generateContent"
+    "gemini-2.0-flash:generateContent"
 )
 
 def get_ai_analysis(magnitude, location, depth):
@@ -329,4 +329,5 @@ if __name__ == "__main__":
         host  = "0.0.0.0",
         port  = int(os.environ.get("PORT", 5000)),
         debug = False
-                        )
+    )
+    
