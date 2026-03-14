@@ -233,8 +233,7 @@ def check_and_notify():
 def api_quakes():
     quakes = parse_kandilli()[:10]
     for q in quakes:
-        ai    = get_ai_analysis(q["magnitude"], q["location"], q["depth"])
-        q["ai"] = ai if ai else "AI analizi şu an kullanılamıyor."
+        q["ai"] = None  # Gemini şimdilik devre dışı
     return jsonify(quakes)
 
 @app.route("/api/subscribe", methods=["POST"])
@@ -330,4 +329,3 @@ if __name__ == "__main__":
         port  = int(os.environ.get("PORT", 5000)),
         debug = False
     )
-    
