@@ -9,21 +9,21 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:        #0c0c0e;
-  --bg2:       #111114;
-  --bg3:       #161619;
-  --surface:   #1a1a1e;
-  --border:    #2a2a30;
-  --border2:   #222228;
-  --ink:       #e8e8e0;
-  --ink2:      #888880;
-  --ink3:      #444448;
-  --orange:    #ff5c1a;
-  --orange-dim:#c44010;
-  --orange-bg: rgba(255,92,26,0.08);
-  --red:       #ff2b2b;
-  --amber:     #f59e0b;
-  --green:     #22c55e;
+  --bg:        #060d1a;
+  --bg2:       #0a1628;
+  --bg3:       #0e1e35;
+  --surface:   #111f38;
+  --border:    #1e3358;
+  --border2:   #162844;
+  --ink:       #e8edf5;
+  --ink2:      #7a9ac0;
+  --ink3:      #3a5278;
+  --orange:    #8faadc;
+  --orange-dim:#2f5da8;
+  --orange-bg: rgba(143,170,220,0.08);
+  --red:       #ff4d6a;
+  --amber:     #f0b429;
+  --green:     #34d399;
   --display:   'Clash Display', sans-serif;
   --mono:      'JetBrains Mono', monospace;
 }
@@ -148,7 +148,7 @@ body {
   transform: translateX(-50%);
   width: 600px;
   height: 300px;
-  background: radial-gradient(ellipse, rgba(255,92,26,0.12) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(47,93,168,0.25) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -585,18 +585,18 @@ body {
 .timeline-section { margin: 48px 0 1px; }
 
 .timeline-tabs {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   border-bottom: 1px solid var(--border2);
   margin-bottom: 0;
-  overflow-x: auto;
 }
 
 .ttab {
   font-family: var(--display);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 1px;
-  padding: 12px 24px;
+  letter-spacing: .5px;
+  padding: 12px 10px;
   cursor: pointer;
   border: none;
   background: transparent;
@@ -605,7 +605,10 @@ body {
   margin-bottom: -1px;
   transition: all .18s;
   text-transform: uppercase;
+  text-align: center;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ttab.active  { color: var(--orange); border-bottom-color: var(--orange); }
@@ -1507,8 +1510,8 @@ function drawWave() {
     ctx.stroke();
   };
 
-  drawLine(H*.45, 14, .022, .014, 'rgba(255,92,26,0.7)', 1.5);
-  drawLine(H*.55,  8, .016, .009, 'rgba(255,92,26,0.25)', 1);
+  drawLine(H*.45, 14, .022, .014, 'rgba(143,170,220,0.8)', 1.5);
+  drawLine(H*.55,  8, .016, .009, 'rgba(47,93,168,0.4)', 1);
 
   offset += .7;
   requestAnimationFrame(drawWave);
@@ -1519,7 +1522,7 @@ resizeCanvas();
 drawWave();
 
 // ── TABS ──────────────────────────────────────
-function switchTab(btn, name) {
+window.switchTab = function(btn, name) {
   document.querySelectorAll('.tpanel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.ttab').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
