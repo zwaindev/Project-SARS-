@@ -917,7 +917,7 @@ body {
   font-size: 11px;
   color: var(--ink2);
   line-height: 1.9;
-  margin-bottom: 20px;
+    margin-bottom: 20px;
   padding-top: 4px;
 }
 
@@ -1532,22 +1532,24 @@ window.switchTab = function(btn, name) {
 // ── DATA ──────────────────────────────────────
 async function loadQuakes() {
   try {
-    const r = await fetch('/api/quakes');
-    if (!r.ok) throw new Error(r.status);
+    const r = await fetch(window.location.origin + '/api/quakes');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     const quakes = await r.json();
+    if (!Array.isArray(quakes)) throw new Error('Geçersiz veri');
     renderQuakes(quakes);
     updateStats(quakes);
     document.getElementById('updateMeta').textContent =
       new Date().toLocaleTimeString('tr-TR', { hour:'2-digit', minute:'2-digit' }) + ' GÜNCELLENDİ';
-  } catch {
+  } catch(err) {
+    console.error('loadQuakes hata:', err);
     document.getElementById('quakeList').innerHTML =
-      '<div class="loader"><div class="loader-text">Bağlantı hatası — yeniden deneniyor...</div></div>';
+      '<div class="loader"><div class="loader-text">Hata: ' + err.message + '</div></div>';
   }
 }
 
 async function loadStats() {
   try {
-    const r = await fetch('/api/stats');
+    const r = await fetch(window.location.origin + '/api/stats');
     const d = await r.json();
     document.getElementById('statSubs').textContent = d.subscribers ?? '—';
   } catch {}
@@ -1621,7 +1623,7 @@ async function subscribe() {
     return;
   }
   try {
-    const r = await fetch('/api/subscribe', {
+    const r = await fetch(window.location.origin + '/api/subscribe', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ email })
