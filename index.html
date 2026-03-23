@@ -1657,11 +1657,11 @@ footer {
         </div>
         <div class="social-arr">→</div>
       </a>
-      <a class="social-link" href="mailto:zwaindev99@gmail.com">
+      <a class="social-link" href="/cdn-cgi/l/email-protection#fa808d9b93949e9f8cc3c3ba9d979b9396d4999597">
         <div class="social-num">02</div>
         <div class="social-info">
           <div class="social-platform">E-Posta</div>
-          <div class="social-handle">zwaindev99@gmail.com</div>
+          <div class="social-handle"><span class="__cf_email__" data-cfemail="4a303d2b23242e2f3c73730a2d272b232664292527">[email&#160;protected]</span></div>
         </div>
         <div class="social-arr">→</div>
       </a>
@@ -1685,7 +1685,7 @@ footer {
   <div class="footer-meta">Veri: Kandilli Rasathanesi · Boğaziçi Üniversitesi<br><span id="footerDate"></span></div>
 </footer>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ── CLOCK ────────────────────────────────────
 function updateClock() {
   const now = new Date();
@@ -1748,6 +1748,14 @@ function renderQuakes(list) {
       '<div class="loader"><div class="loader-text">Deprem verisi bulunamadı</div></div>';
     return;
   }
+  // severity garantisi
+  list = list.map(q => ({
+    ...q,
+    severity: q.severity || (q.magnitude >= 5 ? 'severe' : q.magnitude >= 4 ? 'moderate' : 'minor'),
+    location: (q.location || 'Bilinmiyor').replace(/\u0130/g,'İ').replace(/\u0131/g,'ı').replace(/\u015e/g,'Ş').replace(/\u00dc/g,'Ü').replace(/\u00d6/g,'Ö').replace(/\u00c7/g,'Ç').replace(/\u011e/g,'Ğ'),
+    magnitude: parseFloat(q.magnitude) || 0,
+    depth: parseFloat(q.depth) || 0,
+  }));
   document.getElementById('quakeList').innerHTML = list.map(q => `
     <div class="quake-card ${q.severity}">
       <div class="mag-col">
@@ -1788,20 +1796,32 @@ async function loadQuakes() {
     const r = await fetch(window.location.origin + '/api/quakes');
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const text   = await r.text();
-    const quakes = JSON.parse(text);
-    if (!Array.isArray(quakes)) throw new Error('Geçersiz veri formatı');
-    renderQuakes(quakes);
-    if (quakes.length) {
-      document.getElementById('statCount').textContent = quakes.length;
-      const mx = quakes.reduce((a,b) => b.magnitude > a.magnitude ? b : a);
-      document.getElementById('statMax').textContent = (+mx.magnitude).toFixed(1);
+    let quakes;
+    try { quakes = JSON.parse(text); } catch(e) {
+      document.getElementById('quakeList').innerHTML =
+        '<div class="loader"><div class="loader-text">JSON parse hatasi: ' + text.slice(0,100) + '</div></div>';
+      return;
     }
+    if (!Array.isArray(quakes)) {
+      document.getElementById('quakeList').innerHTML =
+        '<div class="loader"><div class="loader-text">Veri dizi degil: ' + typeof quakes + '</div></div>';
+      return;
+    }
+    if (quakes.length === 0) {
+      document.getElementById('quakeList').innerHTML =
+        '<div class="loader"><div class="loader-text">Bos dizi geldi — kandilli veri yok</div></div>';
+      return;
+    }
+    renderQuakes(quakes);
+    document.getElementById('statCount').textContent = quakes.length;
+    const mx = quakes.reduce((a,b) => parseFloat(b.magnitude) > parseFloat(a.magnitude) ? b : a);
+    document.getElementById('statMax').textContent = parseFloat(mx.magnitude).toFixed(1);
     document.getElementById('updateMeta').textContent =
       new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}) + ' GÜNCELLENDİ';
   } catch(err) {
     console.error('loadQuakes:', err);
     document.getElementById('quakeList').innerHTML =
-      '<div class="loader"><div class="loader-text">Hata: ' + err.message + ' — yeniden deneniyor</div></div>';
+      '<div class="loader"><div class="loader-text">Hata: ' + err.message + '</div></div>';
   }
 }
 
@@ -1849,12 +1869,4 @@ window.subscribe = async function() {
 document.getElementById('emailInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') subscribe();
 });
-
-// ── INIT ─────────────────────────────────────
-loadQuakes();
-loadStats();
-setInterval(loadQuakes, 120000);
-setInterval(loadStats, 60000);
-</script>
-</body>
-</html>
+  
