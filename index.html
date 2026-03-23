@@ -1686,6 +1686,177 @@ footer {
 </footer>
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+// CLOCK
+function updateClock() {
+  var now = new Date();
+  var el = document.getElementById('clockEl');
+  if (el) el.textContent = now.toLocaleTimeString('tr-TR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  var fd = document.getElementById('footerDate');
+  if (fd) fd.textContent = now.toLocaleDateString('tr-TR');
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// WAVE
+var canvas = document.getElementById('waveCanvas');
+if (canvas) {
+  var ctx = canvas.getContext('2d');
+  var off = 0;
+  function resizeWave() {
+    canvas.width  = canvas.offsetWidth  * window.devicePixelRatio;
+    canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  }
+  function drawWave() {
+    var W = canvas.offsetWidth, H = canvas.offsetHeight;
+    ctx.clearRect(0, 0, W, H);
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(59,130,246,0.6)';
+    ctx.lineWidth = 1.5;
+    for (var x = 0; x <= W; x++) {
+      var t = x * 0.02 + off * 0.013;
+      var y = H*0.5 + Math.sin(t)*12 + Math.sin(t*2.3+1)*3.6 + Math.sin(t*0.7-0.5)*6;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    off += 0.6;
+    requestAnimationFrame(drawWave);
+  }
+  window.addEventListener('resize', resizeWave);
+  resizeWave();
+  drawWave();
+}
+
+// TABS
+window.switchTab = function(btn, name) {
+  var panels = document.querySelectorAll('.gpanel');
+  var tabs   = document.querySelectorAll('.gtab');
+  for (var i = 0; i < panels.length; i++) panels[i].classList.remove('active');
+  for (var i = 0; i < tabs.length;   i++) tabs[i].classList.remove('active');
+  var p = document.getElementById('tab-' + name);
+  if (p) p.classList.add('active');
+  btn.classList.add('active');
+};
+
+// RENDER QUAKES
+function renderQuakes(list) {
+  var el = document.getElementById('quakeList');
+  if (!el) return;
+  if (!list || list.length === 0) {
+    el.innerHTML = '<div class="loader"><div class="loader-text">Deprem verisi bulunamadi</div></div>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < list.length; i++) {
+    var q   = list[i];
+    var mag = parseFloat(q.magnitude) || 0;
+    var dep = parseFloat(q.depth)     || 0;
+    var sev = q.severity || (mag >= 5 ? 'severe' : mag >= 4 ? 'moderate' : 'minor');
+    var loc = q.location || 'Bilinmiyor';
+    var tim = q.time     || '';
+    var bar = Math.min(100, (mag / 8) * 100) + '%';
+    var sevLabel = sev === 'severe' ? 'KRITIK' : sev === 'moderate' ? 'ORTA' : 'KUCUK';
+    var magColor = sev === 'severe' ? 'red'    : sev === 'moderate' ? 'amber' : 'dim';
+
+    html += '<div class="quake-card ' + sev + '">';
+    html +=   '<div class="mag-col">';
+    html +=     '<div class="mag-num">' + mag.toFixed(1) + '</div>';
+    html +=     '<div class="mag-unit">MW</div>';
+    html +=     '<div class="mag-bar"><div class="mag-fill" style="width:' + bar + '"></div></div>';
+    html +=   '</div>';
+    html +=   '<div class="quake-body">';
+    html +=     '<div class="quake-top">';
+    html +=       '<div class="quake-loc">' + loc + '</div>';
+    html +=       '<div class="sev-tag ' + sev + '">' + sevLabel + '</div>';
+    html +=     '</div>';
+    html +=     '<div class="quake-meta">';
+    html +=       '<div class="qmeta"><div class="qmeta-label">Zaman</div><div class="qmeta-val dim">' + tim + '</div></div>';
+    html +=       '<div class="qmeta"><div class="qmeta-label">Derinlik</div><div class="qmeta-val">' + dep + ' km</div></div>';
+    html +=       '<div class="qmeta"><div class="qmeta-label">Buyukluk</div><div class="qmeta-val ' + magColor + '">' + mag.toFixed(1) + ' Mw</div></div>';
+    html +=       '<div class="qmeta"><div class="qmeta-label">Kaynak</div><div class="qmeta-val dim">Kandilli</div></div>';
+    html +=     '</div>';
+    html +=   '</div>';
+    html += '</div>';
+  }
+  el.innerHTML = html;
+}
+
+// LOAD QUAKES
+function loadQuakes() {
+  fetch('/api/quakes')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      renderQuakes(data);
+      if (data && data.length) {
+        document.getElementById('statCount').textContent = data.length;
+        var mx = data.reduce(function(a,b) { return parseFloat(b.magnitude) > parseFloat(a.magnitude) ? b : a; });
+        document.getElementById('statMax').textContent = parseFloat(mx.magnitude).toFixed(1);
+        document.getElementById('updateMeta').textContent =
+          new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}) + ' GUNCELLENDI';
+      }
+    })
+    .catch(function(err) {
+      document.getElementById('quakeList').innerHTML =
+        '<div class="loader"><div class="loader-text">Hata: ' + err.message + '</div></div>';
+    });
+}
+
+// LOAD STATS
+function loadStats() {
+  fetch('/api/stats')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var el = document.getElementById('statSubs');
+      if (el) el.textContent = d.subscribers || 0;
+    })
+    .catch(function() {});
+}
+
+// SUBSCRIBE
+window.subscribe = function() {
+  var email = document.getElementById('emailInput').value.trim();
+  var msg   = document.getElementById('subMsg');
+  if (!email || email.indexOf('@') === -1) {
+    msg.className = 'sub-msg err';
+    msg.textContent = 'Gecerli bir e-posta adresi girin.';
+    msg.style.display = 'block';
+    return;
+  }
+  fetch('/api/subscribe', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({email: email})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.ok) {
+      msg.className = 'sub-msg ok';
+      msg.textContent = 'Kayit basarili! Deprem oldugunda bildirim alacaksiniz.';
+      document.getElementById('emailInput').value = '';
+      loadStats();
+    } else {
+      msg.className = 'sub-msg err';
+      msg.textContent = d.error || 'Bir hata olustu.';
+    }
+    msg.style.display = 'block';
+  })
+  .catch(function() {
+    msg.className = 'sub-msg err';
+    msg.textContent = 'Baglanti hatasi.';
+    msg.style.display = 'block';
+  });
+};
+
+document.getElementById('emailInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') window.subscribe();
+});
+
+// INIT
+loadQuakes();
+loadStats();
+setInterval(loadQuakes, 120000);
+setInterval(loadStats,  60000);
+</script><script>
 // ── CLOCK ────────────────────────────────────
 function updateClock() {
   const now = new Date();
@@ -1743,53 +1914,45 @@ const SEV = { severe:'KRİTİK', moderate:'ORTA', minor:'KÜÇÜK' };
 function magWidth(m) { return Math.min(100,(m/8)*100)+'%'; }
 
 function renderQuakes(list) {
+  var el = document.getElementById('quakeList');
   if (!list || !list.length) {
-    document.getElementById('quakeList').innerHTML =
-      '<div class="loader"><div class="loader-text">Deprem verisi bulunamadı</div></div>';
+    el.innerHTML = '<div class="loader"><div class="loader-text">Deprem verisi bulunamadi</div></div>';
     return;
   }
-  // severity garantisi
-  list = list.map(q => ({
-    ...q,
-    severity: q.severity || (q.magnitude >= 5 ? 'severe' : q.magnitude >= 4 ? 'moderate' : 'minor'),
-    location: (q.location || 'Bilinmiyor').replace(/\u0130/g,'İ').replace(/\u0131/g,'ı').replace(/\u015e/g,'Ş').replace(/\u00dc/g,'Ü').replace(/\u00d6/g,'Ö').replace(/\u00c7/g,'Ç').replace(/\u011e/g,'Ğ'),
-    magnitude: parseFloat(q.magnitude) || 0,
-    depth: parseFloat(q.depth) || 0,
-  }));
-  document.getElementById('quakeList').innerHTML = list.map(q => `
-    <div class="quake-card ${q.severity}">
-      <div class="mag-col">
-        <div class="mag-num">${(+q.magnitude).toFixed(1)}</div>
-        <div class="mag-unit">MW</div>
-        <div class="mag-bar"><div class="mag-fill" style="width:${magWidth(q.magnitude)}"></div></div>
-      </div>
-      <div class="quake-body">
-        <div class="quake-top">
-          <div class="quake-loc">${q.location || 'Bilinmiyor'}</div>
-          <div class="sev-tag ${q.severity}">${SEV[q.severity] || q.severity}</div>
-        </div>
-        <div class="quake-meta">
-          <div class="qmeta">
-            <div class="qmeta-label">Zaman</div>
-            <div class="qmeta-val dim">${q.time}</div>
-          </div>
-          <div class="qmeta">
-            <div class="qmeta-label">Derinlik</div>
-            <div class="qmeta-val">${q.depth} km</div>
-          </div>
-          <div class="qmeta">
-            <div class="qmeta-label">Büyüklük</div>
-            <div class="qmeta-val ${q.severity === 'severe' ? 'red' : q.severity === 'moderate' ? 'amber' : 'dim'}">${(+q.magnitude).toFixed(1)} Mw</div>
-          </div>
-          <div class="qmeta">
-            <div class="qmeta-label">Kaynak</div>
-            <div class="qmeta-val dim">Kandilli</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `).join('');
+  var SEV = { severe:'KRITIK', moderate:'ORTA', minor:'KUCUK' };
+  var out = '';
+  for (var i = 0; i < list.length; i++) {
+    var q   = list[i];
+    var mag = parseFloat(q.magnitude) || 0;
+    var dep = parseFloat(q.depth) || 0;
+    var sev = q.severity || (mag >= 5 ? 'severe' : mag >= 4 ? 'moderate' : 'minor');
+    var loc = (q.location || 'Bilinmiyor');
+    var tim = q.time || '';
+    var bar = Math.min(100, (mag / 8) * 100) + '%';
+    var magColor = sev === 'severe' ? 'red' : sev === 'moderate' ? 'amber' : 'dim';
+    out += '<div class="quake-card ' + sev + '">';
+    out +=   '<div class="mag-col">';
+    out +=     '<div class="mag-num">' + mag.toFixed(1) + '</div>';
+    out +=     '<div class="mag-unit">MW</div>';
+    out +=     '<div class="mag-bar"><div class="mag-fill" style="width:' + bar + '"></div></div>';
+    out +=   '</div>';
+    out +=   '<div class="quake-body">';
+    out +=     '<div class="quake-top">';
+    out +=       '<div class="quake-loc">' + loc + '</div>';
+    out +=       '<div class="sev-tag ' + sev + '">' + (SEV[sev] || sev) + '</div>';
+    out +=     '</div>';
+    out +=     '<div class="quake-meta">';
+    out +=       '<div class="qmeta"><div class="qmeta-label">Zaman</div><div class="qmeta-val dim">' + tim + '</div></div>';
+    out +=       '<div class="qmeta"><div class="qmeta-label">Derinlik</div><div class="qmeta-val">' + dep + ' km</div></div>';
+    out +=       '<div class="qmeta"><div class="qmeta-label">Buyukluk</div><div class="qmeta-val ' + magColor + '">' + mag.toFixed(1) + ' Mw</div></div>';
+    out +=       '<div class="qmeta"><div class="qmeta-label">Kaynak</div><div class="qmeta-val dim">Kandilli</div></div>';
+    out +=     '</div>';
+    out +=   '</div>';
+    out += '</div>';
+  }
+  el.innerHTML = out;
 }
+
 
 async function loadQuakes() {
   try {
@@ -1869,4 +2032,12 @@ window.subscribe = async function() {
 document.getElementById('emailInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') subscribe();
 });
-  
+
+// ── INIT ─────────────────────────────────────
+loadQuakes();
+loadStats();
+setInterval(loadQuakes, 120000);
+setInterval(loadStats,  60000);
+</script>
+</body>
+</html>
